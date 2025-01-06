@@ -1,11 +1,13 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::{Ethereum as Ethers, EthereumBuilder, EthereumError, Event, WalletType};
 use ethers::{
     providers::Provider,
     types::{Address, Signature},
 };
-use leptos::*;
+
+use leptos::prelude::*;
+use leptos::task::spawn_local;
 use log::{debug, error};
 use serde::Serialize;
 use url::Url;
@@ -33,12 +35,12 @@ pub fn Ethereum(children: Children) -> impl IntoView {
 /// Ethereum context for your website
 #[derive(Clone, Debug)]
 pub struct EthereumContext {
-    pub(crate) inner: Rc<EthereumInnerContext>,
+    pub(crate) inner: Arc<EthereumInnerContext>,
 }
 
 impl EthereumContext {
     pub(crate) fn new() -> Self {
-        Self { inner: Rc::new(EthereumInnerContext::new()) }
+        Self { inner: Arc::new(EthereumInnerContext::new()) }
     }
 
     /// Connect to the wallet (defined by type)
@@ -89,15 +91,13 @@ impl EthereumContext {
 
 #[derive(Clone, Debug)]
 pub(crate) struct EthereumInnerContext {
-    ethers: ReadSignal<Ethers>,
-    set_ethers: WriteSignal<Ethers>,
-    state: ReadSignal<EthereumState>,
-    set_state: WriteSignal<EthereumState>,
+    ethers: RwSignal<Ethers>,
+    state: RwSignal<EthereumState>,
 }
 
 impl EthereumInnerContext {
     pub(crate) fn new() -> Self {
-        let (state, set_state) = create_signal(EthereumState {
+        let state = RwSignal::new(EthereumState {
             connected: false,
             accounts: None,
             chain_id: None,
@@ -130,23 +130,23 @@ impl EthereumInnerContext {
             )
             .build();
 
-        let (ethers, set_ethers) = create_signal(ethereum);
-        Self { ethers, set_ethers, state, set_state }
+        let ethers = RwSignal::new(ethereum);
+        Self { ethers, state }
     }
 
     pub fn connect(&self, wallet_type: WalletType) {
         debug!("Here");
         self.disconnect();
-        let mut eth = self.ethers.get();
-        let set_eth = self.set_ethers;
-        let set_state = self.set_state;
+        let (_, set_state) = self.state.split();
+        let (r,w) = self.ethers.split();
+        let mut eth = r.get();
         if eth.is_available(wallet_type) {
             debug!("There");
             spawn_local(async move {
                 debug!("Everywhere");
                 if eth.connect(wallet_type).await.is_ok() {
                     debug!("Got it");
-                    set_eth.set(eth.clone());
+                    w.set(eth.clone());                    
                     run(eth, set_state).await;
                 }
             });
@@ -157,11 +157,13 @@ impl EthereumInnerContext {
 
     pub fn disconnect(&self) {
         if self.is_connected() {
-            let mut eth = self.ethers.get();
-            let set_eth = self.set_ethers;
+            let eth = self.ethers.clone();
+
             spawn_local(async move {
+                let (r, w) = eth.split();
+                let mut eth = r.get();
                 let _ = eth.disconnect().await;
-                set_eth.set(eth);
+                w.set(eth);
             });
         }
     }

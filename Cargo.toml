@@ -29,7 +29,8 @@ gloo-storage = "0.3.0"
 gloo-utils = "0.2"
 hex = "0.4.3"
 js-sys = "0.3.64"
-leptos = { version = "0.6", features = ["csr"], optional = true }
+# leptos = { version = "0.7", features = ["csr"], optional = true }
+leptos = { version = "0.7", features = ["csr"] }
 log = "0.4.20"
 qrcode-generator = "4.1.9"
 rand = "0.8"
@@ -48,7 +49,7 @@ yew = { version = "0.21", features = ["csr"], optional = true }
 yew-hooks = { version = "0.3", optional = true }
 
 [features]
-leptos = ["dep:leptos"]
+# leptos = ["dep:leptos"]
 yew = ["dep:yew", "dep:yew-hooks"]
 
 [dev-dependencies]

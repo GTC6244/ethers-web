@@ -7,7 +7,7 @@ pub mod explorer;
 mod eip1193;
 mod event;
 
-#[cfg(feature = "leptos")]
+// #[cfg(feature = "leptos")]
 pub mod leptos;
 
 mod walletconnect;
