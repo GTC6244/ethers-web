@@ -145,14 +145,10 @@ pub fn use_ethereum() -> UseEthereum {
 
     let ethereum = use_state(move || {
         builder
-            .url(
-                Url::parse(app_url).expect(
-                    &format!(
-                        "Correct app url in variable APP_URL is not provided. '{:?}'",
-                        std::option_env!("APP_URL")
-                    ),
-                ),
-            )
+            .url(Url::parse(app_url).expect(&format!(
+                "Correct app url in variable APP_URL is not provided. '{:?}'",
+                std::option_env!("APP_URL")
+            )))
             .build()
     });
 

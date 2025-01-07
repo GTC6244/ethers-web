@@ -7,7 +7,7 @@ pub mod explorer;
 mod eip1193;
 mod event;
 
-// #[cfg(feature = "leptos")]
+#[cfg(feature = "leptos")]
 pub mod leptos;
 
 mod walletconnect;
@@ -24,7 +24,7 @@ use ethers::{
 use gloo_storage::{LocalStorage, Storage};
 use gloo_utils::format::JsValueSerdeExt;
 use hex::FromHexError;
-use log::{debug, error};
+use log::error;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     fmt::{Debug, Formatter, Result as FmtResult},
@@ -529,7 +529,6 @@ impl Ethereum {
             _ => Ok(self.receiver.lock().await.recv().await),
         };
 
-        debug!("NEW EVENT {:?}", event);
         if let Ok(Some(e)) = &event {
             if e == &Event::Connected {
                 if let WebProvider::WalletConnect(provider) = &self.wallet {
@@ -544,7 +543,6 @@ impl Ethereum {
                 _ = LocalStorage::set(STATUS_KEY, self.collect_state());
             }
         }
-
         event
     }
 
