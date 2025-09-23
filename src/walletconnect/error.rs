@@ -1,8 +1,7 @@
 use ethers::{
     providers::{HttpClientError, JsonRpcError, ProviderError, RpcError},
-    types::SignatureError,
+    types::SignatureError, utils::hex::FromHexError,
 };
-use hex::FromHexError;
 use log::error;
 use thiserror::Error;
 use walletconnect_client::prelude::*;
