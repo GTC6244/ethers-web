@@ -1,9 +1,8 @@
 use ethers::{
     prelude::{JsonRpcError, ProviderError, RpcError, SignatureError},
-    utils::ConversionError,
+    utils::{ConversionError, hex::FromHexError},
 };
 use gloo_utils::format::JsValueSerdeExt;
-use hex::FromHexError;
 use thiserror::Error;
 use wasm_bindgen::JsValue;
 

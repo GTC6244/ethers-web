@@ -1,11 +1,13 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::{Ethereum as Ethers, EthereumBuilder, EthereumError, Event, WalletType};
 use ethers::{
     providers::Provider,
     types::{Address, Signature},
 };
-use leptos::*;
+use leptos::children::Children;
+use leptos::prelude::*;
+use leptos::task::spawn_local;
 use log::{debug, error};
 use serde::Serialize;
 use url::Url;
@@ -33,16 +35,17 @@ pub fn Ethereum(children: Children) -> impl IntoView {
 /// Ethereum context for your website
 #[derive(Clone, Debug)]
 pub struct EthereumContext {
-    pub(crate) inner: Rc<EthereumInnerContext>,
+    pub(crate) inner: Arc<EthereumInnerContext>,
 }
 
 impl EthereumContext {
     pub(crate) fn new() -> Self {
-        Self { inner: Rc::new(EthereumInnerContext::new()) }
+        Self { inner: Arc::new(EthereumInnerContext::new()) }
     }
 
     /// Connect to the wallet (defined by type)
     pub fn connect(&self, wallet_type: WalletType) {
+        log::info!("Connect | wallet_type: {:?}", wallet_type);
         self.inner.connect(wallet_type);
     }
 
@@ -97,12 +100,13 @@ pub(crate) struct EthereumInnerContext {
 
 impl EthereumInnerContext {
     pub(crate) fn new() -> Self {
-        let (state, set_state) = create_signal(EthereumState {
+        let (state, set_state) = RwSignal::new(EthereumState {
             connected: false,
             accounts: None,
             chain_id: None,
             pairing_url: None,
-        });
+        })
+        .split();
 
         let mut builder = EthereumBuilder::new();
 
@@ -120,32 +124,24 @@ impl EthereumInnerContext {
         };
 
         let ethereum = builder
-            .url(
-                Url::parse(app_url).expect(
-                    &format!(
-                        "Correct app url in variable APP_URL is not provided. '{:?}'",
-                        std::option_env!("APP_URL")
-                    ),
-                ),
-            )
+            .url(Url::parse(app_url).expect(&format!(
+                "Correct app url in variable APP_URL is not provided. '{:?}'",
+                std::option_env!("APP_URL")
+            )))
             .build();
 
-        let (ethers, set_ethers) = create_signal(ethereum);
+        let (ethers, set_ethers) = RwSignal::new(ethereum).split();
         Self { ethers, set_ethers, state, set_state }
     }
 
     pub fn connect(&self, wallet_type: WalletType) {
-        debug!("Here");
         self.disconnect();
         let mut eth = self.ethers.get();
         let set_eth = self.set_ethers;
         let set_state = self.set_state;
         if eth.is_available(wallet_type) {
-            debug!("There");
             spawn_local(async move {
-                debug!("Everywhere");
                 if eth.connect(wallet_type).await.is_ok() {
-                    debug!("Got it");
                     set_eth.set(eth.clone());
                     run(eth, set_state).await;
                 }
@@ -208,30 +204,33 @@ async fn run(eth: Ethers, set_state: WriteSignal<EthereumState>) {
 
     while keep_looping {
         match eth.next().await {
-            Ok(Some(event)) => match event {
-                Event::ConnectionWaiting(url) => {
-                    state.pairing_url = Some(url);
-                    set_state.set(state.clone());
+            Ok(Some(event)) => {
+                log::info!("Event: {:?}", event);
+                match event {
+                    Event::ConnectionWaiting(url) => {
+                        state.pairing_url = Some(url);
+                        set_state.set(state.clone());
+                    }
+                    Event::Connected => {
+                        state.connected = true;
+                        state.pairing_url = None;
+                        set_state.set(state.clone());
+                    }
+                    Event::Disconnected => {
+                        state.connected = false;
+                        set_state.set(state.clone());
+                    }
+                    Event::Broken => {}
+                    Event::ChainIdChanged(chain_id) => {
+                        state.chain_id = chain_id;
+                        set_state.set(state.clone());
+                    }
+                    Event::AccountsChanged(accounts) => {
+                        state.accounts = accounts;
+                        set_state.set(state.clone());
+                    }
                 }
-                Event::Connected => {
-                    state.connected = true;
-                    state.pairing_url = None;
-                    set_state.set(state.clone());
-                }
-                Event::Disconnected => {
-                    state.connected = false;
-                    set_state.set(state.clone());
-                }
-                Event::Broken => {}
-                Event::ChainIdChanged(chain_id) => {
-                    state.chain_id = chain_id;
-                    set_state.set(state.clone());
-                }
-                Event::AccountsChanged(accounts) => {
-                    state.accounts = accounts;
-                    set_state.set(state.clone());
-                }
-            },
+            }
             Ok(None) => {}
             Err(err) => {
                 keep_looping = false;
